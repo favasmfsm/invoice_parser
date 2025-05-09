@@ -82,6 +82,7 @@ if (
 ):  # Changed from if uploaded_files to handle empty list case
     st.session_state.uploaded_files = uploaded_files
     st.session_state.current_index = 0
+    st.sidebar.write("Current Index before buttons:", st.session_state.current_index)
 
 # Navigation controls
 if st.session_state.uploaded_files:
@@ -90,6 +91,10 @@ if st.session_state.uploaded_files:
         if st.button("Previous", disabled=st.session_state.current_index == 0):
             st.session_state.current_index -= 1
             st.rerun()  # Force rerun to update the display
+            st.sidebar.write(
+                "Current Index prev button:", st.session_state.current_index
+            )
+
     with col2:
         st.write(
             f"Image {st.session_state.current_index + 1} of {len(st.session_state.uploaded_files)}"
@@ -103,6 +108,10 @@ if st.session_state.uploaded_files:
                 == len(st.session_state.uploaded_files) - 1,
             ):
                 st.session_state.current_index += 1
+                st.sidebar.write(
+                    "Current Index after next:", st.session_state.current_index
+                )
+
                 st.rerun()  # Force rerun to update the display
         with col3_2:
             if st.button("Finish"):
@@ -112,6 +121,8 @@ if st.session_state.uploaded_files:
                     st.warning("No data has been processed yet.")
 
     # Get current file
+    st.sidebar.write("Current Index before prcocess:", st.session_state.current_index)
+
     current_file = st.session_state.uploaded_files[st.session_state.current_index]
 
     # Reset file pointer and read image
