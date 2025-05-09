@@ -62,11 +62,16 @@ async def extract_info_from_image(prompt, image):
 # Sidebar: Upload image
 st.sidebar.title("Upload Invoice Images")
 uploaded_files = st.sidebar.file_uploader(
-    "Choose invoice images", type=["png", "jpg", "jpeg"], accept_multiple_files=True
+    "Choose invoice images",
+    type=["png", "jpg", "jpeg"],
+    accept_multiple_files=True,
+    key="invoice_uploader",
 )
 
 # Update session state when new files are uploaded
-if uploaded_files:
+if (
+    uploaded_files is not None
+):  # Changed from if uploaded_files to handle empty list case
     st.session_state.uploaded_files = uploaded_files
     st.session_state.current_index = 0
 
