@@ -75,6 +75,20 @@ if uploaded_files:
     st.session_state.processed_data = []
     st.session_state.show_summary = False
 
+    # Handle navigation at the top before rendering UI
+    nav = st.session_state.get("nav", None)
+    if nav == "next":
+        if st.session_state.current_index < len(st.session_state.uploaded_files) - 1:
+            st.session_state.current_index += 1
+        st.session_state.nav = None
+        st.rerun()
+    elif nav == "prev":
+        if st.session_state.current_index > 0:
+            st.session_state.current_index -= 1
+        st.session_state.nav = None
+        st.rerun()
+
+
 # If files exist
 if st.session_state.uploaded_files:
     files = st.session_state.uploaded_files
@@ -85,8 +99,9 @@ if st.session_state.uploaded_files:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col1:
         if st.button("Previous", disabled=idx == 0):
-            st.session_state.current_index -= 1
+            st.session_state.nav = "prev"
             st.rerun()
+
     with col2:
         total = len(files)
         is_processed = response_key in st.session_state
@@ -96,8 +111,9 @@ if st.session_state.uploaded_files:
         col3a, col3b = st.columns(2)
         with col3a:
             if st.button("Next", disabled=idx == len(files) - 1):
-                st.session_state.current_index += 1
+                st.session_state.nav = "next"
                 st.rerun()
+
         with col3b:
             if st.button("Finish"):
                 if st.session_state.processed_data:
