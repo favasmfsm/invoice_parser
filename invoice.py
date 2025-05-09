@@ -108,9 +108,7 @@ if st.session_state.uploaded_files:
                 == len(st.session_state.uploaded_files) - 1,
             ):
                 st.session_state.current_index += 1
-                st.sidebar.write(
-                    "Current Index after next:", st.session_state.current_index
-                )
+                print("Current Index after next:", st.session_state.current_index)
 
                 st.rerun()  # Force rerun to update the display
         with col3_2:
