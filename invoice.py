@@ -4,6 +4,7 @@ import pandas as pd
 import json
 import asyncio
 from google import genai
+import io
 
 # Set page config
 st.set_page_config(page_title="Invoice Extractor", layout="wide")
@@ -105,6 +106,9 @@ if st.session_state.uploaded_files:
 
     # Get current file
     current_file = st.session_state.uploaded_files[st.session_state.current_index]
+
+    # Reset file pointer and read image
+    current_file.seek(0)
     image = Image.open(current_file)
 
     # Display layout
@@ -115,7 +119,8 @@ if st.session_state.uploaded_files:
         st.subheader("Invoice Image")
         st.image(image, use_container_width=True)
 
-    # Convert image to byte array if needed
+    # Reset file pointer again for Gemini processing
+    current_file.seek(0)
     img_bytes = current_file.read()
 
     # Send to Gemini
