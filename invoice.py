@@ -74,7 +74,7 @@ if uploaded_files:
     st.session_state.current_index = 0
     st.session_state.processed_data = []
     st.session_state.show_summary = False
-
+    
 # If files exist
 if st.session_state.uploaded_files:
     files = st.session_state.uploaded_files
@@ -87,6 +87,7 @@ if st.session_state.uploaded_files:
             st.session_state.current_index -= 1
             st.rerun()
     with col2:
+        process_button = st.button("Extract Invoice", disabled=idx == 0):
         st.write(f"Image {idx + 1} of {len(files)}")
     with col3:
         col3a, col3b = st.columns(2)
