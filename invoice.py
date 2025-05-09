@@ -13,6 +13,8 @@ if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = []
 if "current_index" not in st.session_state:
     st.session_state.current_index = 0
+if "processed_data" not in st.session_state:
+    st.session_state.processed_data = []
 
 # Prompt for invoice extraction
 invoice_extraction_prompt = """
@@ -86,12 +88,20 @@ if st.session_state.uploaded_files:
             f"Image {st.session_state.current_index + 1} of {len(st.session_state.uploaded_files)}"
         )
     with col3:
-        if st.button(
-            "Next",
-            disabled=st.session_state.current_index
-            == len(st.session_state.uploaded_files) - 1,
-        ):
-            st.session_state.current_index += 1
+        col3_1, col3_2 = st.columns(2)
+        with col3_1:
+            if st.button(
+                "Next",
+                disabled=st.session_state.current_index
+                == len(st.session_state.uploaded_files) - 1,
+            ):
+                st.session_state.current_index += 1
+        with col3_2:
+            if st.button("Finish"):
+                if st.session_state.processed_data:
+                    st.session_state.show_summary = True
+                else:
+                    st.warning("No data has been processed yet.")
 
     # Get current file
     current_file = st.session_state.uploaded_files[st.session_state.current_index]
@@ -140,6 +150,17 @@ if st.session_state.uploaded_files:
                         key=f"summary_editor_{st.session_state.current_index}",
                     )
 
+                    # Store the processed data
+                    if (
+                        f"summary_editor_{st.session_state.current_index}"
+                        in st.session_state
+                    ):
+                        current_data = st.session_state[
+                            f"summary_editor_{st.session_state.current_index}"
+                        ]
+                        if current_data not in st.session_state.processed_data:
+                            st.session_state.processed_data.append(current_data)
+
                     # Display line items if any
                     if line_items:
                         st.subheader("Line Items")
@@ -156,3 +177,19 @@ if st.session_state.uploaded_files:
             st.error(f"Model failed to extract info: {e}")
 else:
     st.info("Please upload one or more invoice images to begin.")
+
+# Display concatenated summary if Finish was clicked
+if "show_summary" in st.session_state and st.session_state.show_summary:
+    st.header("All Processed Invoices Summary")
+    if st.session_state.processed_data:
+        all_data = pd.concat(st.session_state.processed_data, ignore_index=True)
+        st.dataframe(all_data, use_container_width=True)
+
+        # Add download button for the concatenated data
+        csv = all_data.to_csv(index=False)
+        st.download_button(
+            label="Download Summary as CSV",
+            data=csv,
+            file_name="invoice_summary.csv",
+            mime="text/csv",
+        )
