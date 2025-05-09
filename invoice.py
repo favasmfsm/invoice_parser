@@ -87,14 +87,12 @@ if st.session_state.uploaded_files:
             st.session_state.current_index -= 1
             st.rerun()
     with col2:
-        process_button = st.button("Extract Invoice")
         st.write(f"Image {idx + 1} of {len(files)}")
     with col3:
         col3a, col3b = st.columns(2)
         with col3a:
             if st.button("Next", disabled=idx == len(files) - 1):
                 st.session_state.current_index += 1
-                process_button = True
                 st.rerun()
         with col3b:
             if st.button("Finish"):
@@ -108,6 +106,22 @@ if st.session_state.uploaded_files:
     current_file.seek(0)
     image = Image.open(current_file)
 
+    # Process button (moved to top)
+    response_key = f"response_{idx}"
+    if response_key not in st.session_state:
+        if st.button("Process This Invoice"):
+            with st.spinner("Extracting invoice data..."):
+                try:
+                    response = asyncio.run(
+                        extract_info_from_image(invoice_extraction_prompt, image)
+                    )
+                    st.session_state[response_key] = response.text
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Model failed to extract info: {e}")
+    else:
+        st.success("Already processed.")
+
     col_left, col_right = st.columns(2)
     with col_left:
         st.subheader("Invoice Image")
@@ -116,7 +130,7 @@ if st.session_state.uploaded_files:
     # Process button
     response_key = f"response_{idx}"
     if response_key not in st.session_state:
-        if process_button:
+        if st.button("Process This Invoice"):
             with st.spinner("Extracting invoice data..."):
                 try:
                     response = asyncio.run(
