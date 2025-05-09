@@ -17,6 +17,15 @@ if "current_index" not in st.session_state:
 if "processed_data" not in st.session_state:
     st.session_state.processed_data = []
 
+# Debug information
+st.sidebar.write("Debug Information:")
+st.sidebar.write("Current Index:", st.session_state.current_index)
+st.sidebar.write("Number of uploaded files:", len(st.session_state.uploaded_files))
+st.sidebar.write("Processed data count:", len(st.session_state.processed_data))
+
+# Print session state keys
+st.sidebar.write("Session State Keys:", list(st.session_state.keys()))
+
 # Prompt for invoice extraction
 invoice_extraction_prompt = """
 You are an expert in document understanding and structured data extraction from financial documents like invoices.
