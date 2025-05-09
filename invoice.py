@@ -17,14 +17,10 @@ if "current_index" not in st.session_state:
 if "processed_data" not in st.session_state:
     st.session_state.processed_data = []
 
-# Debug information
+# Debug information in sidebar
 st.sidebar.write("Debug Information:")
 st.sidebar.write("Current Index:", st.session_state.current_index)
 st.sidebar.write("Number of uploaded files:", len(st.session_state.uploaded_files))
-st.sidebar.write("Processed data count:", len(st.session_state.processed_data))
-
-# Print session state keys
-st.sidebar.write("Session State Keys:", list(st.session_state.keys()))
 
 # Prompt for invoice extraction
 invoice_extraction_prompt = """
@@ -93,6 +89,7 @@ if st.session_state.uploaded_files:
     with col1:
         if st.button("Previous", disabled=st.session_state.current_index == 0):
             st.session_state.current_index -= 1
+            st.rerun()  # Force rerun to update the display
     with col2:
         st.write(
             f"Image {st.session_state.current_index + 1} of {len(st.session_state.uploaded_files)}"
@@ -106,6 +103,7 @@ if st.session_state.uploaded_files:
                 == len(st.session_state.uploaded_files) - 1,
             ):
                 st.session_state.current_index += 1
+                st.rerun()  # Force rerun to update the display
         with col3_2:
             if st.button("Finish"):
                 if st.session_state.processed_data:
@@ -117,7 +115,7 @@ if st.session_state.uploaded_files:
     current_file = st.session_state.uploaded_files[st.session_state.current_index]
 
     # Reset file pointer and read image
-    current_file.seek(st.session_state.current_index)
+    current_file.seek(0)  # Reset to beginning of current file
     image = Image.open(current_file)
 
     # Display layout
@@ -129,7 +127,7 @@ if st.session_state.uploaded_files:
         st.image(image, use_container_width=True)
 
     # Reset file pointer again for Gemini processing
-    current_file.seek(st.session_state.current_index)
+    current_file.seek(0)  # Reset to beginning of current file
     img_bytes = current_file.read()
 
     # Send to Gemini
