@@ -55,152 +55,132 @@ google_api_key = st.secrets["api_keys"]["google"]
 
 
 async def extract_info_from_image(prompt, image):
-    google_client = genai.Client(api_key=google_api_key)
-    response = google_client.models.generate_content(
+    client = genai.Client(api_key=google_api_key)
+    response = client.models.generate_content(
         model="gemini-2.0-flash-lite", contents=[prompt, image]
     )
     return response
 
 
-# Sidebar for file upload
+# Sidebar - File uploader
 st.sidebar.title("Upload Invoice Images")
-uploaded_files = st.sidebar.file_uploader(
+new_uploads = st.sidebar.file_uploader(
     "Choose invoice images", type=["png", "jpg", "jpeg"], accept_multiple_files=True
 )
 
-# If new files uploaded
-if uploaded_files:
-    st.session_state.uploaded_files = uploaded_files
+# Reset on new uploads
+if new_uploads:
+    st.session_state.uploaded_files = new_uploads
     st.session_state.current_index = 0
     st.session_state.processed_data = []
     st.session_state.show_summary = False
 
-    # Handle navigation at the top before rendering UI
-    nav = st.session_state.get("nav", None)
-    if nav == "next":
-        if st.session_state.current_index < len(st.session_state.uploaded_files) - 1:
+# Navigation logic
+if st.session_state.uploaded_files:
+    if "nav" in st.session_state:
+        nav = st.session_state.pop("nav")
+        if (
+            nav == "next"
+            and st.session_state.current_index
+            < len(st.session_state.uploaded_files) - 1
+        ):
             st.session_state.current_index += 1
-        st.session_state.nav = None
-        st.rerun()
-    elif nav == "prev":
-        if st.session_state.current_index > 0:
+        elif nav == "prev" and st.session_state.current_index > 0:
             st.session_state.current_index -= 1
-        st.session_state.nav = None
-        st.rerun()
+        st.experimental_rerun()
 
-
-# If files exist
+# Main UI
 if st.session_state.uploaded_files:
     files = st.session_state.uploaded_files
     idx = st.session_state.current_index
     response_key = f"response_{idx}"
 
-    # Navigation Buttons
-    col1, col2, col3 = st.columns([1, 2, 1])
+    # Navigation buttons and status
+    col1, col2, col3, col4 = st.columns([1, 3, 1, 1])
     with col1:
-        if st.button("Previous", disabled=idx == 0):
-            st.session_state.nav = "prev"
-            st.rerun()
-
+        if st.button("Previous", disabled=(idx == 0)):
+            st.session_state["nav"] = "prev"
     with col2:
         total = len(files)
-        is_processed = response_key in st.session_state
-        status = "✅ Processed" if is_processed else "❌ Not Processed"
-        st.markdown(f"**Image {idx + 1} of {total}** — {status}")
+        status = (
+            "✅ Processed" if response_key in st.session_state else "❌ Not Processed"
+        )
+        st.markdown(f"**Image {idx+1} of {total}** — {status}")
     with col3:
-        col3a, col3b = st.columns(2)
-        with col3a:
-            if st.button("Next", disabled=idx == len(files) - 1):
-                st.session_state.nav = "next"
-                st.rerun()
+        if st.button("Next", disabled=(idx == len(files) - 1)):
+            st.session_state["nav"] = "next"
+    with col4:
+        if st.button("Finish"):
+            if st.session_state.processed_data:
+                st.session_state.show_summary = True
+            else:
+                st.warning("No data has been processed yet.")
 
-        with col3b:
-            if st.button("Finish"):
-                if st.session_state.processed_data:
-                    st.session_state.show_summary = True
-                else:
-                    st.warning("No data has been processed yet.")
-
-    # Load and display current image
+    # Display current image and process
     current_file = files[idx]
     current_file.seek(0)
     image = Image.open(current_file)
-
     col_left, col_right = st.columns(2)
+
     with col_left:
         st.subheader("Invoice Image")
-
-        # Process button moved above image
         if response_key not in st.session_state:
-            if st.button("Process This Invoice"):
+            if st.button("Process This Invoice", key=f"process_btn_{idx}"):
                 with st.spinner("Extracting invoice data..."):
                     try:
-                        response = asyncio.run(
+                        resp = asyncio.run(
                             extract_info_from_image(invoice_extraction_prompt, image)
                         )
-                        st.session_state[response_key] = response.text
-                        st.rerun()
+                        st.session_state[response_key] = resp.text
+                        st.experimental_rerun()
                     except Exception as e:
                         st.error(f"Model failed to extract info: {e}")
         else:
             st.success("Already processed.")
-
         st.image(image, use_container_width=True)
 
+    # Show extracted data
     if response_key in st.session_state:
-        info_text = st.session_state[response_key]
+        raw = st.session_state[response_key]
         st.subheader("Raw Model Output")
-        st.code(info_text)
-
+        st.code(raw)
         try:
-            json_start = info_text.find("{")
-            json_end = info_text.rfind("}") + 1
-            info_formatted = json.loads(info_text[json_start:json_end])
-
+            obj = json.loads(raw[raw.find("{") : raw.rfind("}") + 1])
             with col_right:
                 st.subheader("Extracted Invoice Data")
-
-                # Line items
-                line_items = info_formatted.pop("line_items", [])
-                summary_df = pd.DataFrame(
-                    info_formatted.items(), columns=["Field", "Value"]
-                )
-                edited_summary_df = st.data_editor(
-                    summary_df,
+                line_items = obj.pop("line_items", [])
+                df_summary = pd.DataFrame(obj.items(), columns=["Field", "Value"])
+                edited = st.data_editor(
+                    df_summary,
+                    key=f"editor_sum_{idx}",
                     use_container_width=True,
                     num_rows="dynamic",
-                    key=f"summary_editor_{idx}",
                 )
-
-                if f"summary_editor_{idx}" in st.session_state:
-                    current_data = st.session_state[f"summary_editor_{idx}"]
-                    if current_data not in st.session_state.processed_data:
-                        st.session_state.processed_data.append(current_data)
-
+                if edited not in st.session_state.processed_data:
+                    st.session_state.processed_data.append(edited)
                 if line_items:
                     st.subheader("Line Items")
-                    line_items_df = pd.DataFrame(line_items)
+                    df_items = pd.DataFrame(line_items)
                     st.data_editor(
-                        line_items_df,
+                        df_items,
+                        key=f"editor_items_{idx}",
                         use_container_width=True,
                         num_rows="dynamic",
-                        key=f"line_items_editor_{idx}",
                     )
         except json.JSONDecodeError:
             st.error("Could not parse valid JSON from model output.")
 else:
     st.info("Please upload one or more invoice images to begin.")
 
-# Show summary if finish was clicked
+# Show summary
 if st.session_state.show_summary:
     st.header("All Processed Invoices Summary")
-    if st.session_state.processed_data:
-        all_data = pd.concat(st.session_state.processed_data, ignore_index=True)
-        st.dataframe(all_data, use_container_width=True)
-        csv = all_data.to_csv(index=False)
-        st.download_button(
-            "Download Summary as CSV",
-            data=csv,
-            file_name="invoice_summary.csv",
-            mime="text/csv",
-        )
+    all_data = pd.concat(st.session_state.processed_data, ignore_index=True)
+    st.dataframe(all_data, use_container_width=True)
+    csv = all_data.to_csv(index=False)
+    st.download_button(
+        "Download Summary as CSV",
+        data=csv,
+        file_name="invoice_summary.csv",
+        mime="text/csv",
+    )
