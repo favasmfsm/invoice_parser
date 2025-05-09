@@ -94,6 +94,7 @@ if st.session_state.uploaded_files:
             if st.button("Next", disabled=idx == len(files) - 1):
                 st.session_state.current_index += 1
                 st.rerun()
+                process_button = True
         with col3b:
             if st.button("Finish"):
                 if st.session_state.processed_data:
@@ -114,7 +115,7 @@ if st.session_state.uploaded_files:
     # Process button
     response_key = f"response_{idx}"
     if response_key not in st.session_state:
-        if st.button("Process This Invoice"):
+        if process_button:
             with st.spinner("Extracting invoice data..."):
                 try:
                     response = asyncio.run(
@@ -173,7 +174,8 @@ else:
 if st.session_state.show_summary:
     st.header("All Processed Invoices Summary")
     if st.session_state.processed_data:
-        all_data = pd.concat(st.session_state.processed_data, ignore_index=True)
+        all_data = pd.DataFrame(st.session_state.processed_data)
+
         st.dataframe(all_data, use_container_width=True)
         csv = all_data.to_csv(index=False)
         st.download_button(
