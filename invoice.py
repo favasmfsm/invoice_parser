@@ -87,7 +87,7 @@ if st.session_state.uploaded_files:
             st.session_state.current_index += 1
         elif nav == "prev" and st.session_state.current_index > 0:
             st.session_state.current_index -= 1
-        st.experimental_rerun()
+        st.rerun()
 
 # Main UI
 if st.session_state.uploaded_files:
@@ -132,7 +132,7 @@ if st.session_state.uploaded_files:
                             extract_info_from_image(invoice_extraction_prompt, image)
                         )
                         st.session_state[response_key] = resp.text
-                        st.experimental_rerun()
+                        st.rerun()
                     except Exception as e:
                         st.error(f"Model failed to extract info: {e}")
         else:
