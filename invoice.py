@@ -79,6 +79,7 @@ if uploaded_files:
 if st.session_state.uploaded_files:
     files = st.session_state.uploaded_files
     idx = st.session_state.current_index
+    response_key = f"response_{idx}"
 
     # Navigation Buttons
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -87,7 +88,10 @@ if st.session_state.uploaded_files:
             st.session_state.current_index -= 1
             st.rerun()
     with col2:
-        st.write(f"Image {idx + 1} of {len(files)}")
+        total = len(files)
+        is_processed = response_key in st.session_state
+        status = "✅ Processed" if is_processed else "❌ Not Processed"
+        st.markdown(f"**Image {idx + 1} of {total}** — {status}")
     with col3:
         col3a, col3b = st.columns(2)
         with col3a:
@@ -109,23 +113,25 @@ if st.session_state.uploaded_files:
     col_left, col_right = st.columns(2)
     with col_left:
         st.subheader("Invoice Image")
+
+        # Process button moved above image
+        if response_key not in st.session_state:
+            if st.button("Process This Invoice"):
+                with st.spinner("Extracting invoice data..."):
+                    try:
+                        response = asyncio.run(
+                            extract_info_from_image(invoice_extraction_prompt, image)
+                        )
+                        st.session_state[response_key] = response.text
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Model failed to extract info: {e}")
+        else:
+            st.success("Already processed.")
+
         st.image(image, use_container_width=True)
 
-    # Process button
-    response_key = f"response_{idx}"
-    if response_key not in st.session_state:
-        if st.button("Process This Invoice"):
-            with st.spinner("Extracting invoice data..."):
-                try:
-                    response = asyncio.run(
-                        extract_info_from_image(invoice_extraction_prompt, image)
-                    )
-                    st.session_state[response_key] = response.text
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Model failed to extract info: {e}")
-    else:
-        st.success("Already processed.")
+    if response_key in st.session_state:
         info_text = st.session_state[response_key]
         st.subheader("Raw Model Output")
         st.code(info_text)
