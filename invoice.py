@@ -88,13 +88,15 @@ if (
 if st.session_state.uploaded_files:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col1:
-        if st.button("Previous", disabled=st.session_state.current_index == 0):
+        prev_clicked = st.button(
+            "Previous", disabled=st.session_state.current_index == 0
+        )
+        if prev_clicked:
             st.session_state.current_index -= 1
-            st.rerun()  # Force rerun to update the display
             st.sidebar.write(
                 "Current Index prev button:", st.session_state.current_index
             )
-
+            st.rerun()
     with col2:
         st.write(
             f"Image {st.session_state.current_index + 1} of {len(st.session_state.uploaded_files)}"
@@ -102,15 +104,17 @@ if st.session_state.uploaded_files:
     with col3:
         col3_1, col3_2 = st.columns(2)
         with col3_1:
-            if st.button(
+            next_clicked = st.button(
                 "Next",
                 disabled=st.session_state.current_index
                 == len(st.session_state.uploaded_files) - 1,
-            ):
+            )
+            if next_clicked:
                 st.session_state.current_index += 1
-                print("Current Index after next:", st.session_state.current_index)
-
-                st.rerun()  # Force rerun to update the display
+                st.sidebar.write(
+                    "Current Index next button:", st.session_state.current_index
+                )
+                st.rerun()
         with col3_2:
             if st.button("Finish"):
                 if st.session_state.processed_data:
@@ -119,8 +123,7 @@ if st.session_state.uploaded_files:
                     st.warning("No data has been processed yet.")
 
     # Get current file
-    st.sidebar.write("Current Index before prcocess:", st.session_state.current_index)
-
+    st.sidebar.write("Current Index before process:", st.session_state.current_index)
     current_file = st.session_state.uploaded_files[st.session_state.current_index]
 
     # Reset file pointer and read image
