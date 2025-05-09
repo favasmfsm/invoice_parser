@@ -98,23 +98,13 @@ if uploaded_file:
                     summary_df = pd.DataFrame(
                         info_formatted.items(), columns=["Field", "Value"]
                     )
-                    edited_summary_df = st.data_editor(
-                        summary_df,
-                        use_container_width=True,
-                        num_rows="dynamic",
-                        key="summary_editor",
-                    )
+                    st.dataframe(summary_df, use_container_width=True)
 
                     # Display line items if any
                     if line_items:
                         st.subheader("Line Items")
                         line_items_df = pd.DataFrame(line_items)
-                        edited_line_items_df = st.data_editor(
-                            line_items_df,
-                            use_container_width=True,
-                            num_rows="dynamic",
-                            key="line_items_editor",
-                        )
+                        st.dataframe(line_items_df, use_container_width=True)
             except json.JSONDecodeError:
                 st.error("Could not parse valid JSON from model output.")
         except Exception as e:
