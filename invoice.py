@@ -117,7 +117,7 @@ if st.session_state.uploaded_files:
     current_file = st.session_state.uploaded_files[st.session_state.current_index]
 
     # Reset file pointer and read image
-    current_file.seek(0)
+    current_file.seek(st.session_state.current_index)
     image = Image.open(current_file)
 
     # Display layout
@@ -129,7 +129,7 @@ if st.session_state.uploaded_files:
         st.image(image, use_container_width=True)
 
     # Reset file pointer again for Gemini processing
-    current_file.seek(0)
+    current_file.seek(st.session_state.current_index)
     img_bytes = current_file.read()
 
     # Send to Gemini
