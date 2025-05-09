@@ -94,8 +94,8 @@ if st.session_state.uploaded_files:
         with col3a:
             if st.button("Next", disabled=idx == len(files) - 1):
                 st.session_state.current_index += 1
-                st.rerun()
                 process_button = True
+                st.rerun()
         with col3b:
             if st.button("Finish"):
                 if st.session_state.processed_data:
