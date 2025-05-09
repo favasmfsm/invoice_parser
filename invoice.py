@@ -106,22 +106,6 @@ if st.session_state.uploaded_files:
     current_file.seek(0)
     image = Image.open(current_file)
 
-    # Process button (moved to top)
-    response_key = f"response_{idx}"
-    if response_key not in st.session_state:
-        if st.button("Process This Invoice"):
-            with st.spinner("Extracting invoice data..."):
-                try:
-                    response = asyncio.run(
-                        extract_info_from_image(invoice_extraction_prompt, image)
-                    )
-                    st.session_state[response_key] = response.text
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Model failed to extract info: {e}")
-    else:
-        st.success("Already processed.")
-
     col_left, col_right = st.columns(2)
     with col_left:
         st.subheader("Invoice Image")
@@ -189,8 +173,7 @@ else:
 if st.session_state.show_summary:
     st.header("All Processed Invoices Summary")
     if st.session_state.processed_data:
-        all_data = pd.DataFrame(st.session_state.processed_data)
-
+        all_data = pd.concat(st.session_state.processed_data, ignore_index=True)
         st.dataframe(all_data, use_container_width=True)
         csv = all_data.to_csv(index=False)
         st.download_button(
