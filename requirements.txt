@@ -1,4 +1,2 @@
 google-genai
-pdf2image
 pypdf
-poppler
