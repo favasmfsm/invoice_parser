@@ -8,6 +8,7 @@ import tempfile
 import os
 from pypdf import PdfReader
 import base64
+import streamlit.components.v1 as components
 
 # Set page config
 st.set_page_config(page_title="Invoice Extractor", layout="wide")
@@ -95,7 +96,11 @@ if uploaded_file:
             with col1:
                 st.subheader("PDF Preview")
                 # Display PDF using Streamlit's native PDF viewer
-                st.pdf(tmp_file_path)
+                with open(tmp_file_path, "rb") as f:
+                    base64_pdf = base64.b64encode(f.read()).decode("utf-8")
+
+                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
+                components.html(pdf_display, height=600, scrolling=True)
 
             # Send to Gemini
             with st.spinner("Extracting invoice data..."):
