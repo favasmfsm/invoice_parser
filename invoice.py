@@ -4,6 +4,10 @@ import pandas as pd
 import json
 import asyncio
 from google import genai
+import tempfile
+import os
+from pdf2image import convert_from_path
+from pypdf import PdfReader
 
 # Set page config
 st.set_page_config(page_title="Invoice Extractor", layout="wide")
@@ -34,7 +38,8 @@ Expected JSON response:
       "description": "string or null",
       "quantity": "string or null",
       "unit_price": "string or null",
-      "total_price": "string or null"
+      "price": "string or null unit price x qty"
+      "net_amount":"string or null"
     }
   ]
 }
@@ -56,66 +61,86 @@ async def extract_info_from_image(prompt, image):
 # Sidebar: Upload image
 st.sidebar.title("Upload Invoice Image")
 uploaded_file = st.sidebar.file_uploader(
-    "Choose an invoice image", type=["png", "jpg", "jpeg"]
+    "Choose an invoice image", type=["png", "jpg", "jpeg", "pdf"]
 )
 
 if uploaded_file:
-    image = Image.open(uploaded_file)
+    # Create a temporary file to store the uploaded file
+    with tempfile.NamedTemporaryFile(
+        delete=False, suffix=os.path.splitext(uploaded_file.name)[1]
+    ) as tmp_file:
+        tmp_file.write(uploaded_file.getvalue())
+        tmp_file_path = tmp_file.name
 
-    # Display layout
-    col1, col2 = st.columns(2)
+    try:
+        # Handle PDF files
+        if uploaded_file.type == "application/pdf":
+            # Convert PDF to image
+            images = convert_from_path(tmp_file_path)
+            image = images[0]  # Use only the first page
+        else:
+            # Handle regular image files
+            image = Image.open(uploaded_file)
 
-    # Show uploaded image
-    with col1:
-        st.subheader("Invoice Image")
-        st.image(image, use_container_width=True)
+        # Display layout
+        col1, col2 = st.columns(2)
 
-    # Convert image to byte array if needed
-    img_bytes = uploaded_file.read()
+        # Show uploaded image
+        with col1:
+            st.subheader("Invoice Image")
+            st.image(image, use_container_width=True)
 
-    # Send to Gemini
-    with st.spinner("Extracting invoice data..."):
-        try:
-            response = asyncio.run(
-                extract_info_from_image(invoice_extraction_prompt, image)
-            )
-            info_text = response.text
-            # st.subheader("Raw Model Output")
-            # st.code(info_text)
+        # Convert image to byte array if needed
+        if uploaded_file.type == "application/pdf":
+            img_bytes = uploaded_file.getvalue()
+        else:
+            img_bytes = uploaded_file.read()
 
+        # Send to Gemini
+        with st.spinner("Extracting invoice data..."):
             try:
-                json_start = info_text.find("{")
-                json_end = info_text.rfind("}") + 1
-                info_formatted = json.loads(info_text[json_start:json_end])
+                response = asyncio.run(
+                    extract_info_from_image(invoice_extraction_prompt, image)
+                )
+                info_text = response.text
 
-                with col2:
-                    st.subheader("Extracted Invoice Data")
+                try:
+                    json_start = info_text.find("{")
+                    json_end = info_text.rfind("}") + 1
+                    info_formatted = json.loads(info_text[json_start:json_end])
 
-                    # Extract line_items if present
-                    line_items = info_formatted.pop("line_items", [])
+                    with col2:
+                        st.subheader("Extracted Invoice Data")
 
-                    # Display other fields as a table (key-value pairs)
-                    summary_df = pd.DataFrame(
-                        info_formatted.items(), columns=["Field", "Value"]
-                    )
-                    edited_summary_df = st.data_editor(
-                        summary_df,
-                        use_container_width=True,
-                        num_rows="dynamic",
-                        key="summary_editor",
-                    )
+                        # Extract line_items if present
+                        line_items = info_formatted.pop("line_items", [])
 
-                    # Display line items if any
-                    if line_items:
-                        st.subheader("Line Items")
-                        line_items_df = pd.DataFrame(line_items)
-                        edited_line_items_df = st.data_editor(
-                            line_items_df,
+                        # Display other fields as a table (key-value pairs)
+                        summary_df = pd.DataFrame(
+                            info_formatted.items(), columns=["Field", "Value"]
+                        )
+                        edited_summary_df = st.data_editor(
+                            summary_df,
                             use_container_width=True,
                             num_rows="dynamic",
-                            key="line_items_editor",
+                            key="summary_editor",
                         )
-            except json.JSONDecodeError:
-                st.error("Could not parse valid JSON from model output.")
-        except Exception as e:
-            st.error(f"Model failed to extract info: {e}")
+
+                        # Display line items if any
+                        if line_items:
+                            st.subheader("Line Items")
+                            line_items_df = pd.DataFrame(line_items)
+                            edited_line_items_df = st.data_editor(
+                                line_items_df,
+                                use_container_width=True,
+                                num_rows="dynamic",
+                                key="line_items_editor",
+                            )
+                except json.JSONDecodeError:
+                    st.error("Could not parse valid JSON from model output.")
+            except Exception as e:
+                st.error(f"Model failed to extract info: {e}")
+    finally:
+        # Clean up temporary file
+        if os.path.exists(tmp_file_path):
+            os.unlink(tmp_file_path)
