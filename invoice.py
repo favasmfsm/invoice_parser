@@ -80,8 +80,8 @@ if uploaded_file:
                 extract_info_from_image(invoice_extraction_prompt, image)
             )
             info_text = response.text
-            st.subheader("Raw Model Output")
-            st.code(info_text)
+            # st.subheader("Raw Model Output")
+            # st.code(info_text)
 
             try:
                 json_start = info_text.find("{")
