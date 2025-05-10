@@ -8,16 +8,6 @@ from google import genai
 # Set page config
 st.set_page_config(page_title="Invoice Extractor", layout="wide")
 
-# Initialize session state
-if "uploaded_files" not in st.session_state:
-    st.session_state.uploaded_files = []
-if "current_index" not in st.session_state:
-    st.session_state.current_index = 0
-if "processed_data" not in st.session_state:
-    st.session_state.processed_data = []
-if "show_summary" not in st.session_state:
-    st.session_state.show_summary = False
-
 # Prompt for invoice extraction
 invoice_extraction_prompt = """
 You are an expert in document understanding and structured data extraction from financial documents like invoices.
@@ -56,129 +46,66 @@ google_api_key = st.secrets["api_keys"]["google"]
 
 async def extract_info_from_image(prompt, image):
     google_client = genai.Client(api_key=google_api_key)
+
     response = google_client.models.generate_content(
         model="gemini-2.0-flash-lite", contents=[prompt, image]
     )
     return response
 
 
-# Sidebar for file upload
-st.sidebar.title("Upload Invoice Images")
-uploaded_files = st.sidebar.file_uploader(
-    "Choose invoice images", type=["png", "jpg", "jpeg"], accept_multiple_files=True
+# Sidebar: Upload image
+st.sidebar.title("Upload Invoice Image")
+uploaded_file = st.sidebar.file_uploader(
+    "Choose an invoice image", type=["png", "jpg", "jpeg"]
 )
 
-# If new files uploaded
-if uploaded_files:
-    st.session_state.uploaded_files = uploaded_files
-    st.session_state.current_index = 0
-    st.session_state.processed_data = []
-    st.session_state.show_summary = False
+if uploaded_file:
+    image = Image.open(uploaded_file)
 
-# If files exist
-if st.session_state.uploaded_files:
-    files = st.session_state.uploaded_files
-    idx = st.session_state.current_index
+    # Display layout
+    col1, col2 = st.columns(2)
 
-    # Navigation Buttons
-    col1, col2, col3 = st.columns([1, 2, 1])
+    # Show uploaded image
     with col1:
-        if st.button("Previous", disabled=idx == 0):
-            st.session_state.current_index -= 1
-            st.rerun()
-    with col2:
-        st.write(f"Image {idx + 1} of {len(files)}")
-    with col3:
-        col3a, col3b = st.columns(2)
-        with col3a:
-            if st.button("Next", disabled=idx == len(files) - 1):
-                st.session_state.current_index += 1
-                st.rerun()
-        with col3b:
-            if st.button("Finish"):
-                if st.session_state.processed_data:
-                    st.session_state.show_summary = True
-                else:
-                    st.warning("No data has been processed yet.")
-
-    # Load and display current image
-    current_file = files[idx]
-    current_file.seek(0)
-    image = Image.open(current_file)
-
-    col_left, col_right = st.columns(2)
-    with col_left:
         st.subheader("Invoice Image")
         st.image(image, use_container_width=True)
 
-    # Process button
-    response_key = f"response_{idx}"
-    if response_key not in st.session_state:
-        if st.button("Process This Invoice"):
-            with st.spinner("Extracting invoice data..."):
-                try:
-                    response = asyncio.run(
-                        extract_info_from_image(invoice_extraction_prompt, image)
-                    )
-                    st.session_state[response_key] = response.text
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Model failed to extract info: {e}")
-    else:
-        st.success("Already processed.")
-        info_text = st.session_state[response_key]
-        st.subheader("Raw Model Output")
-        st.code(info_text)
+    # Convert image to byte array if needed
+    img_bytes = uploaded_file.read()
 
+    # Send to Gemini
+    with st.spinner("Extracting invoice data..."):
         try:
-            json_start = info_text.find("{")
-            json_end = info_text.rfind("}") + 1
-            info_formatted = json.loads(info_text[json_start:json_end])
+            response = asyncio.run(
+                extract_info_from_image(invoice_extraction_prompt, image)
+            )
+            info_text = response.text
+            st.subheader("Raw Model Output")
+            st.code(info_text)
 
-            with col_right:
-                st.subheader("Extracted Invoice Data")
+            try:
+                json_start = info_text.find("{")
+                json_end = info_text.rfind("}") + 1
+                info_formatted = json.loads(info_text[json_start:json_end])
 
-                # Line items
-                line_items = info_formatted.pop("line_items", [])
-                summary_df = pd.DataFrame(
-                    info_formatted.items(), columns=["Field", "Value"]
-                )
-                edited_summary_df = st.data_editor(
-                    summary_df,
-                    use_container_width=True,
-                    num_rows="dynamic",
-                    key=f"summary_editor_{idx}",
-                )
+                with col2:
+                    st.subheader("Extracted Invoice Data")
 
-                if f"summary_editor_{idx}" in st.session_state:
-                    current_data = st.session_state[f"summary_editor_{idx}"]
-                    if current_data not in st.session_state.processed_data:
-                        st.session_state.processed_data.append(current_data)
+                    # Extract line_items if present
+                    line_items = info_formatted.pop("line_items", [])
 
-                if line_items:
-                    st.subheader("Line Items")
-                    line_items_df = pd.DataFrame(line_items)
-                    st.data_editor(
-                        line_items_df,
-                        use_container_width=True,
-                        num_rows="dynamic",
-                        key=f"line_items_editor_{idx}",
+                    # Display other fields as a table (key-value pairs)
+                    summary_df = pd.DataFrame(
+                        info_formatted.items(), columns=["Field", "Value"]
                     )
-        except json.JSONDecodeError:
-            st.error("Could not parse valid JSON from model output.")
-else:
-    st.info("Please upload one or more invoice images to begin.")
+                    st.dataframe(summary_df, use_container_width=True)
 
-# Show summary if finish was clicked
-if st.session_state.show_summary:
-    st.header("All Processed Invoices Summary")
-    if st.session_state.processed_data:
-        all_data = pd.concat(st.session_state.processed_data, ignore_index=True)
-        st.dataframe(all_data, use_container_width=True)
-        csv = all_data.to_csv(index=False)
-        st.download_button(
-            "Download Summary as CSV",
-            data=csv,
-            file_name="invoice_summary.csv",
-            mime="text/csv",
-        )
+                    # Display line items if any
+                    if line_items:
+                        st.subheader("Line Items")
+                        line_items_df = pd.DataFrame(line_items)
+                        st.dataframe(line_items_df, use_container_width=True)
+            except json.JSONDecodeError:
+                st.error("Could not parse valid JSON from model output.")
+        except Exception as e:
+            st.error(f"Model failed to extract info: {e}")
