@@ -7,8 +7,7 @@ from google import genai
 import tempfile
 import os
 from pypdf import PdfReader
-import base64
-import streamlit.components.v1 as components
+from pdf2image import convert_from_path
 
 # Set page config
 st.set_page_config(page_title="Invoice Extractor", layout="wide")
@@ -95,12 +94,13 @@ if uploaded_file:
 
             with col1:
                 st.subheader("PDF Preview")
-                # Display PDF using Streamlit's native PDF viewer
-                with open(tmp_file_path, "rb") as f:
-                    base64_pdf = base64.b64encode(f.read()).decode("utf-8")
+                images = convert_from_path(
+                    tmp_file_path, dpi=150
+                )  # You can adjust DPI for quality
 
-                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
-                components.html(pdf_display, height=600, scrolling=True)
+                # Display PDF using Streamlit's native PDF viewer
+                for page_image in images:
+                    st.image(page_image, use_container_width=True)
 
             # Send to Gemini
             with st.spinner("Extracting invoice data..."):
