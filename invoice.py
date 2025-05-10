@@ -39,6 +39,7 @@ Expected JSON response:
       "quantity": "string or null",
       "unit_price": "string or null",
       "price": "string or null unit price x qty"
+      "tax": "string or null : vat/gst/tax"
       "net_amount":"string or null"
     }
   ]
