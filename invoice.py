@@ -7,6 +7,7 @@ from google import genai
 import tempfile
 import os
 from pypdf import PdfReader
+import base64
 
 # Set page config
 st.set_page_config(page_title="Invoice Extractor", layout="wide")
@@ -92,8 +93,12 @@ if uploaded_file:
                 text_content = pdf_reader.pages[0].extract_text()
 
             with col1:
-                st.subheader("PDF Content")
-                st.text_area("Extracted Text", text_content, height=400)
+                st.subheader("PDF Preview")
+                # Display PDF
+                with open(tmp_file_path, "rb") as f:
+                    base64_pdf = base64.b64encode(f.read()).decode("utf-8")
+                    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
+                    st.markdown(pdf_display, unsafe_allow_html=True)
 
             # Send to Gemini
             with st.spinner("Extracting invoice data..."):
