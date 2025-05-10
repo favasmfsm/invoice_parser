@@ -1,4 +1,3 @@
 google-genai
 pypdf
-poppler-utils
-pdf2image
+pymupdf

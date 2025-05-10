@@ -7,7 +7,7 @@ from google import genai
 import tempfile
 import os
 from pypdf import PdfReader
-from pdf2image import convert_from_path
+import fitz  # PyMuPDF
 
 # Set page config
 st.set_page_config(page_title="Invoice Extractor", layout="wide")
@@ -44,6 +44,17 @@ Expected JSON response:
   ]
 }
 """
+
+
+def pdf_to_images(path):
+    images = []
+    with fitz.open(path) as pdf:
+        for page in pdf:
+            pix = page.get_pixmap(dpi=150)  # higher DPI = better quality
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            images.append(img)
+    return images
+
 
 # Load Google API key from Streamlit secrets
 google_api_key = st.secrets["api_keys"]["google"]
@@ -94,13 +105,9 @@ if uploaded_file:
 
             with col1:
                 st.subheader("PDF Preview")
-                images = convert_from_path(
-                    tmp_file_path, dpi=150
-                )  # You can adjust DPI for quality
-
-                # Display PDF using Streamlit's native PDF viewer
-                for page_image in images:
-                    st.image(page_image, use_container_width=True)
+                images = pdf_to_images(tmp_file_path)
+                for img in images:
+                    st.image(img, use_container_width=True)
 
             # Send to Gemini
             with st.spinner("Extracting invoice data..."):
