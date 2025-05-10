@@ -94,12 +94,8 @@ if uploaded_file:
 
             with col1:
                 st.subheader("PDF Preview")
-                # Display PDF using Streamlit's PDF viewer
-                st.components.v1.iframe(
-                    f"data:application/pdf;base64,{base64.b64encode(open(tmp_file_path, 'rb').read()).decode('utf-8')}",
-                    height=600,
-                    scrolling=True,
-                )
+                # Display PDF using Streamlit's native PDF viewer
+                st.pdf(tmp_file_path)
 
             # Send to Gemini
             with st.spinner("Extracting invoice data..."):
