@@ -95,13 +95,14 @@ async def extract_info_from_image(prompt, image):
 
 # Sidebar: Upload image
 st.sidebar.title("Upload Invoice Image")
+uploaded_files = []
 uploaded_files = st.sidebar.file_uploader(
     "Choose invoice images or pdf",
     type=["png", "jpg", "jpeg", "pdf"],
     accept_multiple_files=True,
 )
 
-if uploaded_files[0]:
+if len(uploaded_files) > 0:
     # Create a temporary file to store the uploaded file
     with tempfile.NamedTemporaryFile(
         delete=False, suffix=os.path.splitext(uploaded_files[0].name)[1]
