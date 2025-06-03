@@ -41,7 +41,7 @@ Expected JSON response:
       "item_name": "string or null",
       "quantity": "string or null",
       "unit_of_measure": "string or null",
-      "rate": "string or null price per unit",
+      "rate_or_unit_price": "string or null price per unit",
       "amount": "string or null rate x qty",
       "tax_percentage": "string or null",
       "tax_amount": "string or null",
