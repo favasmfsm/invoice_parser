@@ -8,6 +8,8 @@ import tempfile
 import os
 from pypdf import PdfReader
 import fitz  # PyMuPDF
+import pathlib
+from google.genai import types
 
 # Set page config
 st.set_page_config(page_title="Invoice Extractor", layout="wide")
@@ -68,10 +70,17 @@ def pdf_to_images(path):
 google_api_key = st.secrets["api_keys"]["google"]
 
 
-async def extract_info_from_text(prompt, text):
+async def extract_info_from_pdf(prompt, pdf_path):
     google_client = genai.Client(api_key=google_api_key)
     response = google_client.models.generate_content(
-        model="gemini-2.0-flash-lite", contents=[prompt, text]
+        model="gemini-2.0-flash-lite",
+        contents=[
+            types.Part.from_bytes(
+                data=pdf_path.read_bytes(),
+                mime_type="application/pdf",
+            ),
+            prompt,
+        ],
     )
     return response
 
@@ -79,23 +88,25 @@ async def extract_info_from_text(prompt, text):
 async def extract_info_from_image(prompt, image):
     google_client = genai.Client(api_key=google_api_key)
     response = google_client.models.generate_content(
-        model="gemini-2.0-flash-lite", contents=[prompt, image]
+        model="gemini-2.0-flash-lite", contents=[prompt] + image
     )
     return response
 
 
 # Sidebar: Upload image
 st.sidebar.title("Upload Invoice Image")
-uploaded_file = st.sidebar.file_uploader(
-    "Choose an invoice image", type=["png", "jpg", "jpeg", "pdf"]
+uploaded_files = st.sidebar.file_uploader(
+    "Choose invoice images or pdf",
+    type=["png", "jpg", "jpeg", "pdf"],
+    accept_multiple_files=True,
 )
 
-if uploaded_file:
+if uploaded_files[0]:
     # Create a temporary file to store the uploaded file
     with tempfile.NamedTemporaryFile(
-        delete=False, suffix=os.path.splitext(uploaded_file.name)[1]
+        delete=False, suffix=os.path.splitext(uploaded_files[0].name)[1]
     ) as tmp_file:
-        tmp_file.write(uploaded_file.getvalue())
+        tmp_file.write(uploaded_files[0].getvalue())
         tmp_file_path = tmp_file.name
 
     try:
@@ -103,17 +114,17 @@ if uploaded_file:
         col1, col2 = st.columns(2)
 
         # Handle PDF files
-        if uploaded_file.type == "application/pdf":
+        if uploaded_files[0].type == "application/pdf":
             # Extract text from PDF
             pdf_reader = PdfReader(tmp_file_path)
             text_content = ""
             # Get text from first page only
             if len(pdf_reader.pages) > 0:
                 text_content = pdf_reader.pages[0].extract_text()
+                images = pdf_to_images(tmp_file_path)
 
             with col1:
                 st.subheader("PDF Preview")
-                images = pdf_to_images(tmp_file_path)
                 for img in images:
                     st.image(img, use_container_width=True)
 
@@ -121,7 +132,9 @@ if uploaded_file:
             with st.spinner("Extracting invoice data..."):
                 try:
                     response = asyncio.run(
-                        extract_info_from_text(invoice_extraction_prompt, text_content)
+                        extract_info_from_pdf(
+                            invoice_extraction_prompt, pathlib.Path(tmp_file_path)
+                        )
                     )
                     info_text = response.text
 
@@ -164,18 +177,22 @@ if uploaded_file:
 
         else:
             # Handle regular image files
-            image = Image.open(uploaded_file)
+            images = []
+            for uploaded_file in uploaded_files:
+                image = Image.open(uploaded_file)
+                images.append(image)
 
             # Show uploaded image
             with col1:
                 st.subheader("Invoice Image")
-                st.image(image, use_container_width=True)
+                for img in images:
+                    st.image(img, use_container_width=True)
 
             # Send to Gemini
             with st.spinner("Extracting invoice data..."):
                 try:
                     response = asyncio.run(
-                        extract_info_from_image(invoice_extraction_prompt, image)
+                        extract_info_from_image(invoice_extraction_prompt, images)
                     )
                     info_text = response.text
 
